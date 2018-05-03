@@ -181,7 +181,26 @@ async function roastMyDeps(rootPkgPath /*: string */, opts /*: RoastMyDepsOpts *
   }
 
   let pkg = await readPkg(rootPkgPath, { normalize: false });
-  let dependencies = pkg.dependencies || {};
+
+  // TODO: Work out why this was required to get things to work.
+  //       Use --verbose mode to see what was happening to lodash previously.
+  let workspacePkgPaths = await globby([
+    '**/package.json',
+    '!**/node_modules/**',
+  ], {
+    cwd: rootDir,
+  });
+
+  let workspaceDependencies = await Promise.all(workspacePkgPaths.map(async pkgPath => {
+    let pkg = await readPkg(pkgPath, { normalize: false });
+    return pkg.dependencies || {};
+  }));
+
+  let dependencies = [...workspaceDependencies, pkg.dependencies || {}].reduce(
+    (dependencies, pkgDeps) => ({ ...dependencies, ...pkgDeps }),
+    {}
+  );
+  // BOTTOM OF CHANGES
 
   await ensureDir(rootNodeModulesCacheDir);
   await ensureDir(cacheDir);
